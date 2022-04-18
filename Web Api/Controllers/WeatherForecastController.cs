@@ -21,8 +21,11 @@ namespace Web_Api.Controllers
             _config = config;
         }
 
+        /// <summary>
+        /// Get Weather Forecast
+        /// </summary>
         [HttpGet(Name = "GetWeatherForecast")]
-        public async Task<WeatherForecastModel> GetAsync(string q, string days, string aqi, string alerts)
+        public async Task<List<WeatherForecastModel>> GetAsync(string q, string days, string aqi, string alerts)
         {
             using (var client = new HttpClient())
             {
@@ -35,13 +38,12 @@ namespace Web_Api.Controllers
                 {
                     string jsonBody = await response.Content.ReadAsStringAsync();
                     var body = JsonConvert.DeserializeObject<WeatherForecast>(jsonBody);
-                    var temperature = body.ForeCast.ForeCastDay.FirstOrDefault().Day.AvgTemp_C;
-                    var weather = body.ForeCast.ForeCastDay.FirstOrDefault().Day.Condition.Text;
-                    return new WeatherForecastModel
+                    var weatherList = new List<WeatherForecastModel>();
+                    foreach (var item in body.ForeCast.ForeCastDay)
                     {
-                        Temperature = temperature,
-                        Weather = weather
-                    };
+                        weatherList.Add(new WeatherForecastModel { Temperature = item.Day.AvgTemp_C + 5, Weather = item.Day.Condition.Text });
+                    }
+                    return weatherList.OrderByDescending(x => x.Temperature).ToList();
                 }
                 return null;
             }
