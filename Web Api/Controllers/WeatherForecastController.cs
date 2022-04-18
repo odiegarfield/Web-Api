@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
+using System.Text.Json.Serialization;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -9,44 +12,35 @@ namespace Web_Api.Controllers
     [Route("[controller]")]
     public class WeatherForecastController : ControllerBase
     {
-        private static readonly string[] Summaries = new[]
-        {
-        "Freezing", "Bracin g", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-    };
-
         private readonly ILogger<WeatherForecastController> _logger;
+        private readonly IConfiguration _config;
 
-        public WeatherForecastController(ILogger<WeatherForecastController> logger)
+        public WeatherForecastController(ILogger<WeatherForecastController> logger, IConfiguration config)
         {
             _logger = logger;
+            _config = config;
         }
 
         [HttpGet(Name = "GetWeatherForecast")]
-        public async Task<WeatherForecast> GetAsync()
+        public async Task<WeatherForecastModel> GetAsync(string q, string days, string aqi, string alerts)
         {
             using (var client = new HttpClient())
             {
-                var key = "43becd2fb33d465886e80749221504";
-                var uri = "https://api.weatherapi.com/v1/forecast.xml";
-                var q = "London";
-                var days = "1";
-                var aqi = "no";
-                var alerts = "no";
+                var key = _config["Key"];
+                var uri = $"{_config["Url"]}v1/forecast.json";
                 client.BaseAddress = new Uri(uri);
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
                 HttpResponseMessage response = await client.GetAsync($"?key={key}&q={q}&days={days}&aqi={aqi}&alerts={alerts}");
                 if (response.IsSuccessStatusCode)
                 {
-                    string responseBody = await response.Content.ReadAsStringAsync();
-                    var xmlResponse = XElement.Parse(responseBody);
-                    var temperature = xmlResponse.Descendants().First(node => node.Name == "avgtemp_c").Value;
-                    var condition = xmlResponse.Descendants().FirstOrDefault(xmlResponse => xmlResponse.Name == "condition");
-                    var weather = condition.Descendants().First(node => node.Name == "text").Value;
-
-                    return new WeatherForecast
+                    string jsonBody = await response.Content.ReadAsStringAsync();
+                    var body = JsonConvert.DeserializeObject<WeatherForecast>(jsonBody);
+                    var temperature = body.ForeCast.ForeCastDay.FirstOrDefault().Day.AvgTemp_C;
+                    var weather = body.ForeCast.ForeCastDay.FirstOrDefault().Day.Condition.Text;
+                    return new WeatherForecastModel
                     {
                         Temperature = temperature,
-                        Weather = temperature
+                        Weather = weather
                     };
                 }
                 return null;
